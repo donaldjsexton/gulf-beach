@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
+import { OutputData } from '@editorjs/editorjs'
 
 // Dynamically import the Editor component to avoid SSR issues
 const Editor = dynamic(() => import('@/components/Editor'), { ssr: false })
@@ -11,25 +12,18 @@ const Editor = dynamic(() => import('@/components/Editor'), { ssr: false })
 interface Post {
   id: string
   title: string
-  content: {
-    time: number
-    blocks: Array<{
-      id: string
-      type: string
-      data: Record<string, unknown>
-    }>
-    version: string
-  }
+  content: OutputData
   published: boolean
 }
 
-interface EditPostPageProps {
+interface PageProps {
   params: {
     id: string
   }
+  searchParams: { [key: string]: string | string[] | undefined }
 }
 
-export default function EditPostPage({ params }: EditPostPageProps) {
+export default function EditPostPage({ params }: PageProps) {
   const [post, setPost] = useState<Post | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +51,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     fetchPost()
   }, [fetchPost])
 
-  const handleSave = async (content: Post['content']) => {
+  const handleChange = async (content: OutputData) => {
     try {
       const { error } = await supabase
         .from('blog_posts')
@@ -88,9 +82,8 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     <div className="max-w-4xl mx-auto py-8">
       <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
       <Editor
-        initialContent={post.content}
-        onSave={handleSave}
-        readOnly={!post.published}
+        data={post.content}
+        onChange={handleChange}
       />
     </div>
   )
