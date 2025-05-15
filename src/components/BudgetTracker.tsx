@@ -16,11 +16,6 @@ interface BudgetCategory {
   description: string | null
 }
 
-interface Vendor {
-  id: string
-  name: string
-}
-
 interface Expense {
   id: string
   category_id: string | null
@@ -32,7 +27,6 @@ interface Expense {
   payment_method: string | null
   notes: string | null
   category?: BudgetCategory
-  vendor?: Vendor
   payments: Payment[]
 }
 
@@ -52,20 +46,18 @@ interface BudgetTrackerProps {
 export default function BudgetTracker({ weddingId }: BudgetTrackerProps) {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [categories, setCategories] = useState<BudgetCategory[]>([])
-  const [vendors, setVendors] = useState<Vendor[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'expenses' | 'payments'>('expenses')
 
   const fetchData = useCallback(async () => {
     try {
-      // Fetch expenses with their categories, vendors, and payments
+      // Fetch expenses with their categories and payments
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
         .select(`
           *,
           category:budget_categories(*),
-          vendor:vendors(name),
           payments(*)
         `)
         .eq('wedding_id', weddingId)
@@ -81,17 +73,8 @@ export default function BudgetTracker({ weddingId }: BudgetTrackerProps) {
 
       if (categoriesError) throw categoriesError
 
-      // Fetch vendors
-      const { data: vendorsData, error: vendorsError } = await supabase
-        .from('vendors')
-        .select('id, name')
-        .order('name')
-
-      if (vendorsError) throw vendorsError
-
       setExpenses(expensesData)
       setCategories(categoriesData)
-      setVendors(vendorsData)
     } catch (err) {
       console.error('Error fetching data:', err)
       setError('Failed to load budget data')

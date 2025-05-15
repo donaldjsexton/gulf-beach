@@ -1,9 +1,34 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+export interface SupabaseError {
+  message: string
+  status?: number
+  name?: string
+  details?: string
+  hint?: string
+  code?: string
+}
+
+export function handleSupabaseError(error: unknown): SupabaseError {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      name: error.name,
+    }
+  }
+  return {
+    message: 'An unknown error occurred',
+  }
+}
 
 // Types for our database tables
 export type Tables = {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 
@@ -26,11 +26,7 @@ export default function WeddingTimeline({ weddingId }: WeddingTimelineProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null)
 
-  useEffect(() => {
-    fetchEvents()
-  }, [weddingId])
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('wedding_timelines')
@@ -46,7 +42,11 @@ export default function WeddingTimeline({ weddingId }: WeddingTimelineProps) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [weddingId])
+
+  useEffect(() => {
+    fetchEvents()
+  }, [fetchEvents])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this event?')) return

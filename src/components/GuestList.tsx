@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import {
-  PlusIcon,
   PencilIcon,
   TrashIcon,
   UserPlusIcon,
@@ -60,11 +59,7 @@ export default function GuestList({ weddingId }: GuestListProps) {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'guests' | 'tables'>('guests')
 
-  useEffect(() => {
-    fetchData()
-  }, [weddingId])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // Fetch guests with their RSVPs
       const { data: guestsData, error: guestsError } = await supabase
@@ -100,11 +95,15 @@ export default function GuestList({ weddingId }: GuestListProps) {
       setTables(tablesData)
     } catch (err) {
       console.error('Error fetching data:', err)
-      setError('Failed to load guest list data')
+      setError('Failed to load guest list')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [weddingId])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const handleAddGuest = async () => {
     const firstName = prompt('Enter first name:')
