@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getUser, signOut } from '@/lib/supabase/auth'
+import { supabase } from '@/lib/supabase/client'
 
 export default function AdminLayout({
   children,
@@ -15,8 +15,8 @@ export default function AdminLayout({
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { user, error } = await getUser()
-      if (error || !user) {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error || !session) {
         router.push('/login')
       } else {
         setIsLoading(false)
@@ -26,8 +26,13 @@ export default function AdminLayout({
   }, [router])
 
   const handleSignOut = async () => {
-    await signOut()
-    router.push('/login')
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      router.push('/login')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
   }
 
   if (isLoading) {

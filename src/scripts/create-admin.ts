@@ -1,10 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
+import dotenv from 'dotenv'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+// Get the directory name of the current module
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-if (!supabaseServiceKey) {
-  console.error('SUPABASE_SERVICE_ROLE_KEY is required')
+// Load environment variables from .env.local in the project root
+dotenv.config({ path: resolve(__dirname, '../../.env.local') })
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required')
+  console.error('Please make sure these variables are set in your .env.local file')
   process.exit(1)
 }
 
