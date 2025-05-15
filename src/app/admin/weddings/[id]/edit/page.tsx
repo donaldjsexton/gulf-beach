@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import WeddingTimeline from '@/components/WeddingTimeline'
 import PhotoGallery from '@/components/PhotoGallery'
+import GuestList from '@/components/GuestList'
+import BudgetTracker from '@/components/BudgetTracker'
 
 interface WeddingFormData {
   title: string
@@ -439,6 +441,13 @@ export default function EditWeddingPage({
         <div>
           <PhotoGallery weddingId={params.id} />
         </div>
+        <div>
+          <GuestList weddingId={params.id} />
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <BudgetTracker weddingId={params.id} />
       </div>
     </div>
   )

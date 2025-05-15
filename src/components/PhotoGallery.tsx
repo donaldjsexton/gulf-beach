@@ -1,25 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase/client'
 import {
-  PhotoIcon,
   PlusIcon,
-  PencilIcon,
   TrashIcon,
   EyeIcon,
   EyeSlashIcon,
 } from '@heroicons/react/24/outline'
-
-interface Photo {
-  id: string
-  url: string
-  thumbnail_url: string
-  title: string | null
-  description: string | null
-  taken_at: string | null
-  metadata: any
-}
 
 interface Gallery {
   id: string
@@ -27,6 +16,18 @@ interface Gallery {
   description: string | null
   is_public: boolean
   photos: Photo[]
+}
+
+interface Photo {
+  id: string
+  url: string
+  caption: string | null
+  metadata: {
+    width: number
+    height: number
+    size: number
+    format: string
+  }
 }
 
 interface PhotoGalleryProps {
@@ -37,73 +38,119 @@ export default function PhotoGallery({ weddingId }: PhotoGalleryProps) {
   const [galleries, setGalleries] = useState<Gallery[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedGallery, setSelectedGallery] = useState<Gallery | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadProgress, setUploadProgress] = useState<number>(0)
 
-  useEffect(() => {
-    fetchGalleries()
-  }, [weddingId])
-
-  const fetchGalleries = async () => {
+  const fetchGalleries = useCallback(async () => {
     try {
-      const { data: galleriesData, error: galleriesError } = await supabase
+      const { data, error } = await supabase
         .from('photo_galleries')
-        .select('*')
+        .select(`
+          *,
+          photos(*)
+        `)
         .eq('wedding_id', weddingId)
         .order('created_at', { ascending: false })
 
-      if (galleriesError) throw galleriesError
-
-      const galleriesWithPhotos = await Promise.all(
-        galleriesData.map(async (gallery) => {
-          const { data: photos, error: photosError } = await supabase
-            .from('photos')
-            .select('*')
-            .eq('gallery_id', gallery.id)
-            .order('created_at', { ascending: false })
-
-          if (photosError) throw photosError
-
-          return {
-            ...gallery,
-            photos: photos || [],
-          }
-        })
-      )
-
-      setGalleries(galleriesWithPhotos)
+      if (error) throw error
+      setGalleries(data)
     } catch (err) {
       console.error('Error fetching galleries:', err)
-      setError('Failed to load photo galleries')
+      setError('Failed to load galleries')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [weddingId])
+
+  useEffect(() => {
+    fetchGalleries()
+  }, [fetchGalleries])
 
   const handleCreateGallery = async () => {
     const title = prompt('Enter gallery title:')
     if (!title) return
 
     try {
-      const { data, error } = await supabase
-        .from('photo_galleries')
-        .insert([
-          {
-            wedding_id: weddingId,
-            title,
-            is_public: false,
-          },
-        ])
-        .select()
-        .single()
+      const { error } = await supabase.from('photo_galleries').insert([
+        {
+          wedding_id: weddingId,
+          title,
+          is_public: false,
+        },
+      ])
 
       if (error) throw error
 
-      setGalleries([{ ...data, photos: [] }, ...galleries])
+      await fetchGalleries()
     } catch (err) {
       console.error('Error creating gallery:', err)
       setError('Failed to create gallery')
+    }
+  }
+
+  const handleUploadPhotos = async (galleryId: string, files: FileList) => {
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `${weddingId}/${galleryId}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('photos')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          })
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('photos')
+          .getPublicUrl(filePath)
+
+        const { error: photoError } = await supabase.from('photos').insert([
+          {
+            gallery_id: galleryId,
+            url: publicUrl,
+            metadata: {
+              width: 0, // These would be set after processing
+              height: 0,
+              size: file.size,
+              format: fileExt,
+            },
+          },
+        ])
+
+        if (photoError) throw photoError
+
+        setUploadProgress(((i + 1) / files.length) * 100)
+      }
+
+      await fetchGalleries()
+      setUploadProgress(0)
+    } catch (err) {
+      console.error('Error uploading photos:', err)
+      setError('Failed to upload photos')
+      setUploadProgress(0)
+    }
+  }
+
+  const handleToggleGalleryVisibility = async (
+    galleryId: string,
+    isPublic: boolean
+  ) => {
+    try {
+      const { error } = await supabase
+        .from('photo_galleries')
+        .update({ is_public: !isPublic })
+        .eq('id', galleryId)
+
+      if (error) throw error
+
+      await fetchGalleries()
+    } catch (err) {
+      console.error('Error updating gallery visibility:', err)
+      setError('Failed to update gallery visibility')
     }
   }
 
@@ -118,111 +165,10 @@ export default function PhotoGallery({ weddingId }: PhotoGalleryProps) {
 
       if (error) throw error
 
-      setGalleries(galleries.filter((g) => g.id !== galleryId))
-      if (selectedGallery?.id === galleryId) {
-        setSelectedGallery(null)
-      }
+      await fetchGalleries()
     } catch (err) {
       console.error('Error deleting gallery:', err)
       setError('Failed to delete gallery')
-    }
-  }
-
-  const handleUploadPhotos = async (galleryId: string, files: FileList) => {
-    setIsUploading(true)
-    setUploadProgress(0)
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${weddingId}/${galleryId}/${fileName}`
-
-        // Upload original image
-        const { error: uploadError } = await supabase.storage
-          .from('photos')
-          .upload(filePath, file)
-
-        if (uploadError) throw uploadError
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('photos')
-          .getPublicUrl(filePath)
-
-        // Create thumbnail (you would need to implement this)
-        const thumbnailUrl = publicUrl // For now, use the same URL
-
-        // Add photo to database
-        const { error: dbError } = await supabase.from('photos').insert([
-          {
-            gallery_id: galleryId,
-            url: publicUrl,
-            thumbnail_url: thumbnailUrl,
-            title: file.name,
-          },
-        ])
-
-        if (dbError) throw dbError
-
-        setUploadProgress(((i + 1) / files.length) * 100)
-      }
-
-      // Refresh galleries
-      await fetchGalleries()
-    } catch (err) {
-      console.error('Error uploading photos:', err)
-      setError('Failed to upload photos')
-    } finally {
-      setIsUploading(false)
-      setUploadProgress(0)
-    }
-  }
-
-  const handleDeletePhoto = async (galleryId: string, photoId: string) => {
-    if (!confirm('Are you sure you want to delete this photo?')) return
-
-    try {
-      const { error } = await supabase.from('photos').delete().eq('id', photoId)
-
-      if (error) throw error
-
-      setGalleries(
-        galleries.map((gallery) =>
-          gallery.id === galleryId
-            ? {
-                ...gallery,
-                photos: gallery.photos.filter((p) => p.id !== photoId),
-              }
-            : gallery
-        )
-      )
-    } catch (err) {
-      console.error('Error deleting photo:', err)
-      setError('Failed to delete photo')
-    }
-  }
-
-  const handleTogglePublic = async (galleryId: string, isPublic: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('photo_galleries')
-        .update({ is_public: !isPublic })
-        .eq('id', galleryId)
-
-      if (error) throw error
-
-      setGalleries(
-        galleries.map((gallery) =>
-          gallery.id === galleryId
-            ? { ...gallery, is_public: !isPublic }
-            : gallery
-        )
-      )
-    } catch (err) {
-      console.error('Error updating gallery visibility:', err)
-      setError('Failed to update gallery visibility')
     }
   }
 
@@ -230,8 +176,8 @@ export default function PhotoGallery({ weddingId }: PhotoGalleryProps) {
     return (
       <div className="animate-pulse">
         <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
             <div key={i} className="h-48 bg-gray-200 rounded" />
           ))}
         </div>
@@ -262,7 +208,16 @@ export default function PhotoGallery({ weddingId }: PhotoGalleryProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {uploadProgress > 0 && (
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div
+            className="bg-indigo-600 h-2.5 rounded-full"
+            style={{ width: `${uploadProgress}%` }}
+          />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {galleries.map((gallery) => (
           <div
             key={gallery.id}
@@ -270,12 +225,21 @@ export default function PhotoGallery({ weddingId }: PhotoGalleryProps) {
           >
             <div className="p-4">
               <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {gallery.title}
-                </h3>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {gallery.title}
+                  </h3>
+                  {gallery.description && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      {gallery.description}
+                    </p>
+                  )}
+                </div>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => handleTogglePublic(gallery.id, gallery.is_public)}
+                    onClick={() =>
+                      handleToggleGalleryVisibility(gallery.id, gallery.is_public)
+                    }
                     className="text-gray-400 hover:text-gray-500"
                   >
                     {gallery.is_public ? (
@@ -292,9 +256,6 @@ export default function PhotoGallery({ weddingId }: PhotoGalleryProps) {
                   </button>
                 </div>
               </div>
-              {gallery.description && (
-                <p className="mt-1 text-sm text-gray-500">{gallery.description}</p>
-              )}
             </div>
 
             <div className="border-t border-gray-200">
@@ -302,48 +263,42 @@ export default function PhotoGallery({ weddingId }: PhotoGalleryProps) {
                 <div className="grid grid-cols-2 gap-4">
                   {gallery.photos.slice(0, 4).map((photo) => (
                     <div key={photo.id} className="relative aspect-square">
-                      <img
-                        src={photo.thumbnail_url}
-                        alt={photo.title || ''}
-                        className="w-full h-full object-cover rounded-lg"
+                      <Image
+                        src={photo.url}
+                        alt={photo.caption || ''}
+                        fill
+                        className="object-cover rounded-lg"
                       />
                     </div>
                   ))}
-                  {gallery.photos.length === 0 && (
-                    <div className="col-span-2 flex items-center justify-center h-32 bg-gray-50 rounded-lg">
-                      <PhotoIcon className="h-8 w-8 text-gray-400" />
-                    </div>
-                  )}
                 </div>
+                {gallery.photos.length > 4 && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    +{gallery.photos.length - 4} more photos
+                  </p>
+                )}
+              </div>
 
-                <div className="mt-4">
-                  <label className="block">
-                    <span className="sr-only">Upload photos</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) =>
-                        e.target.files &&
+              <div className="border-t border-gray-200 p-4">
+                <label className="block">
+                  <span className="sr-only">Upload photos</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files) {
                         handleUploadPhotos(gallery.id, e.target.files)
                       }
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                    />
-                  </label>
-                </div>
-
-                {isUploading && (
-                  <div className="mt-4">
-                    <div className="relative pt-1">
-                      <div className="overflow-hidden h-2 text-xs flex rounded bg-indigo-200">
-                        <div
-                          style={{ width: `${uploadProgress}%` }}
-                          className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    }}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-md file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-indigo-50 file:text-indigo-700
+                      hover:file:bg-indigo-100"
+                  />
+                </label>
               </div>
             </div>
           </div>
