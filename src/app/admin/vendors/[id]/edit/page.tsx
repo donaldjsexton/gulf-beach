@@ -213,12 +213,11 @@ export default function EditVendorPage({ params }: PageProps) {
                   required
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
-                  <option value="venue">Venue</option>
-                  <option value="catering">Catering</option>
-                  <option value="photography">Photography</option>
-                  <option value="music">Music</option>
-                  <option value="florist">Florist</option>
-                  <option value="other">Other</option>
+                  {VENDOR_CATEGORIES.map((category) => (
+                    <option key={category.toLowerCase()} value={category.toLowerCase()}>
+                      {category}
+                    </option>
+                  ))}
                 </select>
               </div>
 
