@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import WeddingTimeline from '@/components/WeddingTimeline'
@@ -22,11 +22,14 @@ interface WeddingFormData {
   notes: string
 }
 
-export default function EditWeddingPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+interface PageProps {
+  params: Promise<{
+    id: string
+  }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default function EditWeddingPage({ params }: PageProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -44,47 +47,45 @@ export default function EditWeddingPage({
     guest_count: 0,
     notes: '',
   })
+  const [weddingId, setWeddingId] = useState<string | null>(null)
+
+  const fetchWedding = useCallback(async () => {
+    try {
+      const resolvedParams = await params
+      setWeddingId(resolvedParams.id)
+      const { data, error } = await supabase
+        .from('weddings')
+        .select('*')
+        .eq('id', resolvedParams.id)
+        .single()
+
+      if (error) throw error
+      if (data) {
+        setFormData({
+          title: data.title || '',
+          date: data.date || '',
+          location: data.location || '',
+          status: data.status || 'upcoming',
+          description: data.description || '',
+          client_name: data.client_name || '',
+          client_email: data.client_email || '',
+          client_phone: data.client_phone || '',
+          budget: data.budget || 0,
+          guest_count: data.guest_count || 0,
+          notes: data.notes || '',
+        })
+      }
+    } catch (err) {
+      console.error('Error fetching wedding:', err)
+      setError('Failed to load wedding details')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [params])
 
   useEffect(() => {
-    if (params.id === 'new') {
-      setIsLoading(false)
-      return
-    }
-
-    const fetchWedding = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('weddings')
-          .select('*')
-          .eq('id', params.id)
-          .single()
-
-        if (error) throw error
-        if (data) {
-          setFormData({
-            title: data.title || '',
-            date: data.date || '',
-            location: data.location || '',
-            status: data.status || 'upcoming',
-            description: data.description || '',
-            client_name: data.client_name || '',
-            client_email: data.client_email || '',
-            client_phone: data.client_phone || '',
-            budget: data.budget || 0,
-            guest_count: data.guest_count || 0,
-            notes: data.notes || '',
-          })
-        }
-      } catch (err) {
-        console.error('Error fetching wedding:', err)
-        setError('Failed to load wedding details')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchWedding()
-  }, [params.id])
+  }, [fetchWedding])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -92,16 +93,16 @@ export default function EditWeddingPage({
     setIsSaving(true)
 
     try {
-      if (params.id === 'new') {
-        const { error } = await supabase.from('weddings').insert([formData])
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('weddings')
-          .update(formData)
-          .eq('id', params.id)
-        if (error) throw error
+      if (!weddingId) {
+        throw new Error('Wedding ID not found')
       }
+
+      const { error } = await supabase
+        .from('weddings')
+        .update(formData)
+        .eq('id', weddingId)
+
+      if (error) throw error
       router.push('/admin/weddings')
     } catch (err) {
       console.error('Error saving wedding:', err)
@@ -135,7 +136,7 @@ export default function EditWeddingPage({
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">
-          {params.id === 'new' ? 'Add Wedding' : 'Edit Wedding'}
+          {weddingId === 'new' ? 'Add Wedding' : 'Edit Wedding'}
         </h1>
       </div>
 
@@ -429,26 +430,34 @@ export default function EditWeddingPage({
         </div>
 
         <div className="lg:col-span-1">
-          <div className="overflow-hidden rounded-lg bg-white shadow">
-            <div className="p-6">
-              <WeddingTimeline weddingId={params.id} />
+          {weddingId && (
+            <div className="overflow-hidden rounded-lg bg-white shadow">
+              <div className="p-6">
+                <WeddingTimeline weddingId={weddingId} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <div>
-          <PhotoGallery weddingId={params.id} />
-        </div>
-        <div>
-          <GuestList weddingId={params.id} />
-        </div>
+        {weddingId && (
+          <>
+            <div>
+              <PhotoGallery weddingId={weddingId} />
+            </div>
+            <div>
+              <GuestList weddingId={weddingId} />
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="mt-8">
-        <BudgetTracker weddingId={params.id} />
-      </div>
+      {weddingId && (
+        <div className="mt-8">
+          <BudgetTracker weddingId={weddingId} />
+        </div>
+      )}
     </div>
   )
 } 
