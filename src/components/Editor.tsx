@@ -14,19 +14,19 @@ interface EditorProps {
 }
 
 export default function Editor({ data, onChange }: EditorProps) {
-  const editorRef = useRef<EditorJS>()
+  const editorRef = useRef<EditorJS | null>(null)
 
   useEffect(() => {
     if (!editorRef.current) {
       const editor = new EditorJS({
-        holder: 'editorjs',
+        holder: 'editor',
         tools: {
           header: {
             class: Header,
             config: {
               placeholder: 'Enter a header',
               levels: [1, 2, 3],
-              defaultLevel: 2,
+              defaultLevel: 1,
             },
           },
           list: {
@@ -55,17 +55,7 @@ export default function Editor({ data, onChange }: EditorProps) {
             inlineToolbar: true,
           },
         },
-        data: data || {
-          blocks: [
-            {
-              type: 'header',
-              data: {
-                text: 'Wedding Details',
-                level: 1,
-              },
-            },
-          ],
-        },
+        data,
         onChange: async () => {
           const outputData = await editor.save()
           onChange?.(outputData)
@@ -78,10 +68,10 @@ export default function Editor({ data, onChange }: EditorProps) {
     return () => {
       if (editorRef.current) {
         editorRef.current.destroy()
-        editorRef.current = undefined
+        editorRef.current = null
       }
     }
   }, [data, onChange])
 
-  return <div id="editorjs" className="prose max-w-none" />
+  return <div id="editor" className="prose max-w-none" />
 } 
