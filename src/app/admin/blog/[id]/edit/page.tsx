@@ -17,9 +17,9 @@ interface Post {
 }
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
   searchParams: { [key: string]: string | string[] | undefined }
 }
 
@@ -31,10 +31,11 @@ export default function EditPostPage({ params }: PageProps) {
 
   const fetchPost = useCallback(async () => {
     try {
+      const resolvedParams = await params
       const { data, error } = await supabase
         .from('blog_posts')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', resolvedParams.id)
         .single()
 
       if (error) throw error
@@ -45,7 +46,7 @@ export default function EditPostPage({ params }: PageProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [params.id])
+  }, [params])
 
   useEffect(() => {
     fetchPost()
@@ -53,10 +54,11 @@ export default function EditPostPage({ params }: PageProps) {
 
   const handleChange = async (content: OutputData) => {
     try {
+      const resolvedParams = await params
       const { error } = await supabase
         .from('blog_posts')
         .update({ content })
-        .eq('id', params.id)
+        .eq('id', resolvedParams.id)
 
       if (error) throw error
       router.push('/admin/blog')
