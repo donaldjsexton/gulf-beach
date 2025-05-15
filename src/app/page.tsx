@@ -1,6 +1,41 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import Image from "next/image";
 
 export default function Home() {
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const checkSupabase = async () => {
+      try {
+        const { error } = await supabase.from('weddings').select('count').limit(1)
+        if (error) throw error
+      } catch (err) {
+        console.error('Error connecting to Supabase:', err)
+        setError('Unable to connect to the database. Please check your environment configuration.')
+      }
+    }
+
+    checkSupabase()
+  }, [])
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
+          <div>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+              Configuration Error
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">{error}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
