@@ -14,13 +14,14 @@ interface Client {
   wedding_id: string | null
 }
 
-interface EditClientPageProps {
-  params: {
+interface PageProps {
+  params: Promise<{
     id: string
-  }
+  }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default function EditClientPage({ params }: EditClientPageProps) {
+export default function EditClientPage({ params }: PageProps) {
   const [client, setClient] = useState<Client | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,10 +29,11 @@ export default function EditClientPage({ params }: EditClientPageProps) {
 
   const fetchClient = useCallback(async () => {
     try {
+      const resolvedParams = await params
       const { data, error } = await supabase
         .from('clients')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', resolvedParams.id)
         .single()
 
       if (error) throw error
@@ -42,7 +44,7 @@ export default function EditClientPage({ params }: EditClientPageProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [params.id])
+  }, [params])
 
   useEffect(() => {
     fetchClient()
@@ -62,10 +64,11 @@ export default function EditClientPage({ params }: EditClientPageProps) {
     }
 
     try {
+      const resolvedParams = await params
       const { error } = await supabase
         .from('clients')
         .update(data)
-        .eq('id', params.id)
+        .eq('id', resolvedParams.id)
 
       if (error) throw error
       router.push('/admin/clients')
