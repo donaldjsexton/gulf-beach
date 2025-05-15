@@ -43,7 +43,15 @@ export type Tables = {
     id: string
     slug: string
     title: string
-    content: any // Editor.js JSON
+    content: {
+      time: number
+      blocks: Array<{
+        id: string
+        type: string
+        data: Record<string, unknown>
+      }>
+      version: string
+    }
     published: boolean
     created_at: string
     updated_at: string

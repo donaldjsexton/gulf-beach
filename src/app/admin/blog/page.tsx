@@ -1,14 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
+import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 
 interface BlogPost {
   id: string
   title: string
   slug: string
-  content: any
+  content: {
+    time: number
+    blocks: Array<{
+      id: string
+      type: string
+      data: Record<string, unknown>
+    }>
+    version: string
+  }
   published: boolean
   created_at: string
   updated_at: string
@@ -33,45 +42,29 @@ export default function BlogPage() {
       if (error) throw error
       setPosts(data || [])
     } catch (err) {
-      setError('Failed to fetch blog posts')
-      console.error('Error fetching blog posts:', err)
+      console.error('Error fetching posts:', err)
+      setError('Failed to load posts')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this blog post?')) return
+    if (!confirm('Are you sure you want to delete this post?')) return
 
     try {
-      const { error } = await supabase
-        .from('blog_posts')
-        .delete()
-        .eq('id', id)
+      const { error } = await supabase.from('blog_posts').delete().eq('id', id)
 
       if (error) throw error
-      setPosts(posts.filter(post => post.id !== id))
+      setPosts(posts.filter((post) => post.id !== id))
     } catch (err) {
-      setError('Failed to delete blog post')
-      console.error('Error deleting blog post:', err)
+      console.error('Error deleting post:', err)
+      setError('Failed to delete post')
     }
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-        <strong className="font-bold">Error!</strong>
-        <span className="block sm:inline"> {error}</span>
-      </div>
-    )
+    return <div>Loading...</div>
   }
 
   return (
@@ -80,68 +73,101 @@ export default function BlogPage() {
         <h1 className="text-2xl font-semibold text-gray-900">Blog Posts</h1>
         <Link
           href="/admin/blog/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
         >
-          <svg
-            className="-ml-1 mr-2 h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
+          <PlusIcon className="h-5 w-5 mr-1" />
           New Post
         </Link>
       </div>
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul className="divide-y divide-gray-200">
-          {posts.map((post) => (
-            <li key={post.id}>
-              <div className="px-4 py-4 sm:px-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-indigo-600 truncate">
-                      {post.title}
-                    </p>
-                    <p className="text-xs text-gray-500">{post.slug}</p>
-                  </div>
-                  <div className="ml-2 flex-shrink-0 flex space-x-2">
+      {error && (
+        <div className="rounded-md bg-red-50 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">{error}</h3>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+        <table className="min-w-full divide-y divide-gray-300">
+          <thead className="bg-gray-50">
+            <tr>
+              <th
+                scope="col"
+                className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6"
+              >
+                Title
+              </th>
+              <th
+                scope="col"
+                className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+              >
+                Status
+              </th>
+              <th
+                scope="col"
+                className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+              >
+                Created
+              </th>
+              <th
+                scope="col"
+                className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+              >
+                Updated
+              </th>
+              <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {posts.map((post) => (
+              <tr key={post.id}>
+                <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                  {post.title}
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                  <span
+                    className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                      post.published
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}
+                  >
+                    {post.published ? 'Published' : 'Draft'}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                  {new Date(post.created_at).toLocaleDateString()}
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                  {new Date(post.updated_at).toLocaleDateString()}
+                </td>
+                <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                  <div className="flex justify-end space-x-2">
                     <Link
                       href={`/admin/blog/${post.id}/edit`}
                       className="text-indigo-600 hover:text-indigo-900"
                     >
-                      Edit
+                      <PencilIcon className="h-5 w-5" aria-hidden="true" />
+                      <span className="sr-only">Edit</span>
                     </Link>
                     <button
                       onClick={() => handleDelete(post.id)}
                       className="text-red-600 hover:text-red-900"
                     >
-                      Delete
+                      <TrashIcon className="h-5 w-5" aria-hidden="true" />
+                      <span className="sr-only">Delete</span>
                     </button>
                   </div>
-                </div>
-                <div className="mt-2 sm:flex sm:justify-between">
-                  <div className="sm:flex">
-                    <p className="flex items-center text-sm text-gray-500">
-                      Created {new Date(post.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                    <p>
-                      Last updated {new Date(post.updated_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
