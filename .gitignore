@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+supabase/migrations/
+supabase/migrations/20240325000000_create_settings.sql
+supabase/migrations/20240325000000_create_settings.sql
+supabase/migrations/20240325000001_update_user_policies.sql
+supabase/migrations/20240325000000_create_settings.sql
+supabase/migrations/20240325000002_fix_users_table.sql
+supabase/migrations/20240325000000_create_settings.sql
+supabase/migrations/20240325000000_create_settings.sql
+supabase/migrations/20240325000000_create_settings.sql
+supabase/migrations/20240325000000_create_settings.sql
+supabase/migrations/20240325000000_create_settings.sql

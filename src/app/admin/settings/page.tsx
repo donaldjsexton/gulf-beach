@@ -95,10 +95,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-      </div>
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Settings</h1>
+      <p className="text-gray-600">This is the settings page. Build out the settings form and controls here.</p>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">

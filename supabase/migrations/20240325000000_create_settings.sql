@@ -21,20 +21,8 @@ create policy "Public can view settings"
   on public.settings for select
   using (true);
 
-create policy "Admins can view settings"
-  on public.settings for select
-  using ( auth.jwt() ->> 'role' = 'ADMIN' );
-
-create policy "Admins can insert settings"
-  on public.settings for insert
-  with check ( auth.jwt() ->> 'role' = 'ADMIN' );
-
-create policy "Admins can update settings"
-  on public.settings for update
-  using ( auth.jwt() ->> 'role' = 'ADMIN' );
-
-create policy "Admins can delete settings"
-  on public.settings for delete
+create policy "Admins can manage settings"
+  on public.settings for all
   using ( auth.jwt() ->> 'role' = 'ADMIN' );
 
 -- Create trigger for updated_at

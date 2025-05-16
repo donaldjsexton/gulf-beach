@@ -1,4 +1,4 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { getMiddlewareSupabase } from '@/lib/supabase/middleware'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -8,7 +8,7 @@ export async function middleware(req: NextRequest) {
   // Debug logging
   console.log('Middleware - Request URL:', req.nextUrl.pathname)
   
-  const supabase = createMiddlewareClient({ req, res })
+  const supabase = getMiddlewareSupabase(req, res)
 
   const {
     data: { session },
@@ -18,11 +18,14 @@ export async function middleware(req: NextRequest) {
   console.log('Middleware - Session:', session ? 'Present' : 'Missing')
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/', '/login', '/reset-password']
-  const isPublicRoute = publicRoutes.includes(req.nextUrl.pathname)
+  const publicRoutes = ['/', '/login', '/reset-password', '/api']
+  const isPublicRoute = publicRoutes.some(route => req.nextUrl.pathname.startsWith(route))
 
-  // If user is not signed in and trying to access a protected route
-  if (!session && !isPublicRoute) {
+  // Admin routes that require authentication
+  const isAdminRoute = req.nextUrl.pathname.startsWith('/admin')
+
+  // If user is not signed in and trying to access an admin route
+  if (!session && isAdminRoute) {
     console.log('Middleware - Redirecting to login')
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/login'
